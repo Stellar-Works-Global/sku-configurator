@@ -4,7 +4,8 @@
 //
 // Usage:  SITE_PASSWORD='your-password' node build.mjs "../SKU Configurator.html" index.html
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { webcrypto as crypto } from "node:crypto";
 
 const [, , src, out] = process.argv;
@@ -35,6 +36,11 @@ const key = await crypto.subtle.deriveKey(
 );
 const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(app)));
 const b64 = u8 => Buffer.from(u8).toString("base64");
+// Brand fonts + primary logo for the password page (written by assemble.py)
+const assets = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "gate-assets.html"), "utf8");
+const logo = assets.match(/<!--LOGO-->([\s\S]*?)<!--\/LOGO-->/)[1];
+const gateHead = assets.replace(/<!--LOGO-->[\s\S]*?<!--\/LOGO-->/, "").trim();
+
 const payload = JSON.stringify({ salt: b64(salt), iv: b64(iv), iterations: ITERATIONS, data: b64(cipher) });
 
 const page = `<!doctype html>
@@ -44,31 +50,33 @@ const page = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Stellar Works SKU Configurator</title>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..700&family=Work+Sans:wght@400;600&display=swap" rel="stylesheet">
+${gateHead}
 <style>
-  :root{--bg:#f8f8f5;--surface:#fff;--text:#202020;--muted:#63635c;--border:#c7c7bc;--accent:#819139;--accent-strong:#5f6b2a;--on-accent:#fff;--danger:#a3432f}
-  @media (prefers-color-scheme: dark){:root{--bg:#202020;--surface:#292926;--text:#f8f8f5;--muted:#a8a89e;--border:#4e4e47;--accent:#9fb558;--accent-strong:#bbcf7d;--on-accent:#1b1f0d;--danger:#d98467;color-scheme:dark}}
+  :root{--bg:#f8f8f5;--text:#202020;--muted:#5f5f59;--rule:rgba(32,32,32,.34);--ink:#202020;--on-ink:#f8f8f5;--accent:#819139;--danger:#9a3f2c}
+  @media (prefers-color-scheme: dark){:root{--bg:#202020;--text:#f8f8f5;--muted:#a9a9a1;--rule:rgba(248,248,245,.34);--ink:#f8f8f5;--on-ink:#202020;--accent:#9fb04f;--danger:#df8a6d;color-scheme:dark}}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:15px/1.5 "Work Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px 16px}
-  form{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px}
-  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-  h1{font-family:"Bricolage Grotesque","Work Sans",sans-serif;font-size:26px;line-height:1.1;margin:0 0 4px}
-  label{font-size:13px;font-weight:600}
-  input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
-  input[type=password]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:15px/1.4 "Caslon Doric","Helvetica Neue",Arial,sans-serif;padding:32px max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+  main{width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;gap:36px}
+  .logo{color:var(--text);line-height:0}
+  .logo svg{width:180px;height:auto;display:block;fill:currentColor}
+  form{width:100%;display:flex;flex-direction:column;gap:12px}
+  h1{font-family:"Moulin",Georgia,serif;font-weight:500;font-size:20px;line-height:1;letter-spacing:.02em;text-transform:uppercase;text-align:center;margin:0 0 12px}
+  label{font-size:13px;font-weight:700}
+  input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--rule);border-radius:2px;background:transparent;color:var(--text);font:inherit}
+  input[type=password]:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
   .remember{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);font-weight:400}
-  button{padding:10px 12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:600;cursor:pointer}
-  button:hover{background:var(--accent-strong)}
+  .remember input{accent-color:var(--accent)}
+  button{padding:11px 12px;border:0;border-radius:2px;background:var(--ink);color:var(--on-ink);font:inherit;font-weight:700;cursor:pointer}
+  button:hover{opacity:.86}
   button:disabled{opacity:.6;cursor:wait}
   .err{color:var(--danger);font-size:13.5px;min-height:1.2em;margin:0}
 </style>
 </head>
 <body>
+<main>
+<div class="logo">${logo}</div>
 <form id="gate" autocomplete="on">
-  <div>
-    <div class="eyebrow">Stellar Works · Internal</div>
-    <h1>SKU Configurator</h1>
-  </div>
+  <h1>SKU Configurator</h1>
   <input type="text" name="username" value="sku-configurator" autocomplete="username" hidden>
   <label for="pw">Password</label>
   <input type="password" id="pw" autocomplete="current-password" required autofocus>
@@ -76,6 +84,7 @@ const page = `<!doctype html>
   <button type="submit" id="go">Unlock</button>
   <p class="err" id="err" role="alert"></p>
 </form>
+</main>
 <script>
 const PAYLOAD = ${payload};
 const STORE_KEY = "swSkuConfiguratorPw";
